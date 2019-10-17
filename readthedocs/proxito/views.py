@@ -257,6 +257,24 @@ def serve_docs(
         # Serve from Python
         return serve(request, path, root_path)
 
+
+    # NOTE: this is needed to use a PRIVATE S3 bucket. The method ``.url``
+    # generates the proper ``AccessKeyId`` and ``Signature`` query arguments.
+    storage = get_storage_class(settings.RTD_BUILD_MEDIA_STORAGE)()
+    # We don't need the full URL here: remove the scheme and domain and only
+    # keep the path and query
+    url = storage.url(path)
+    path = f'{urlparse(url).path}?{urlparse(url).query}'
+    # Remove ``/`` to avoid MethodNotSupported
+    path = path.strip('/')
+
+
+
+    # Remove ``/media/static/`` since it will be appended automatically by the
+    # storage when it tries to read the file
+    # path = path.strip('/media/static/')
+
+
     # Serve via nginx
     log.info('[Nginx serve] path=%s, project=%s', path, final_project)
     return _serve_docs_nginx(
