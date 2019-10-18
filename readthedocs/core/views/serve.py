@@ -32,6 +32,7 @@ from functools import wraps
 from urllib.parse import urlparse
 
 from django.conf import settings
+from django.core.files.storage import get_storage_class
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.utils.encoding import iri_to_uri
@@ -312,22 +313,18 @@ def robots_txt(request, project):
         # ... we do return a 404
         raise Http404()
 
-    filename = resolve_path(
-        project,
+    storage_root_path = project.get_storage_path(
+        type_='html',
         version_slug=version_slug,
-        filename='robots.txt',
-        subdomain=True,  # subdomain will make it a "full" path without a URL prefix
+        include_file=False,
     )
-
-    # This breaks path joining, by ignoring the root when given an "absolute" path
-    if filename[0] == '/':
-        filename = filename[1:]
-
-    basepath = PublicSymlink(project).project_root
-    fullpath = os.path.join(basepath, filename)
-
-    if os.path.exists(fullpath):
-        return HttpResponse(open(fullpath).read(), content_type='text/plain')
+    storage = get_storage_class(settings.RTD_BUILD_MEDIA_STORAGE)()
+    storage_filename_path = f'{storage_root_path}/robots.txt'
+    if storage.exists(storage_filename_path):
+        return FileResponse(
+            storage.open(storage_filename_path),
+            content_type='text/plain',
+        )
 
     sitemap_url = '{scheme}://{domain}/sitemap.xml'.format(
         scheme='https',
